@@ -1,0 +1,73 @@
+workflows:
+  swift-ios-app:
+    name: Swift iOS App Workflow
+    environment:
+      vars:
+        XCODE_PROJECT: "Chick Prosperity Bloom.xcodeproj"       # Или укажи .xcworkspace если используешь CocoaPods
+        XCODE_SCHEME: "Chick Prosperity Bloom"                  # Название схемы
+        BUNDLE_ID: "com.prkbloctpehificso.mpyomsyaofclorldrih"
+        APP_STORE_APPLE_ID: 6747517851         # Из App Store Connect > App > General > App Information
+
+      groups:
+        - app_store_credentials                # Должен содержать: APP_STORE_CONNECT_ISSUER_ID, APP_STORE_CONNECT_KEY_IDENTIFIER, APP_STORE_CONNECT_PRIVATE_KEY
+        - certificate_credentials              # Должен содержать: CERTIFICATE_PRIVATE_KEY
+
+      xcode: 15.0                              # Рекомендуется указать конкретную версию
+      cocoapods: default                       # Или 'none', если не используется
+
+    triggering:
+      events:
+        - push
+        - pull_request
+        - tag
+      branch_patterns:
+        - pattern: 'main'
+          include: true
+          source: true
+
+    scripts:
+      - name: Set up keychain for code signing
+        script: |
+          keychain initialize
+      - name: Fetch signing files
+        script: |
+          app-store-connect fetch-signing-files "$BUNDLE_ID" --type IOS_APP_STORE --platform IOS --create --certificate-key-password='040502'
+      - name: Add certificates
+        script: |
+          keychain add-certificates
+      - name: Apply provisioning profiles
+        script: |
+          xcode-project use-profiles
+      - name: Increment build number
+        script: |
+          agvtool new-version -all $(($(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID") + 1))
+      - name: Build IPA
+        script: |
+          xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - $HOME/Library/Developer/Xcode/DerivedData/**/Build/**/*.dSYM
+
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: true
+        # beta_groups:
+        #   - Testers
+
+      email:
+        recipients:
+          - aleshabalash@gmail.com
+        notify:
+          success: true
+          failure: true
+
+      slack:
+        channel: '#builds'
+        notify_on_build_start: true
+        notify:
+          success: true
+          failure: true
