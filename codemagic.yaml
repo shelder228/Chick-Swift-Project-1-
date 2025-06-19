@@ -44,11 +44,15 @@ workflows:
       - name: Build IPA
         script: |
           xcode-project build-ipa --project "$XCODE_PROJECT" --scheme "$XCODE_SCHEME"
-      - name: Debug: List provisioning profiles
+      - name: "Debug: List provisioning profiles"
         script: |
+          echo "Provisioning profiles:"
           ls -l /Users/builder/Library/MobileDevice/Provisioning\ Profiles/
-          ls -l /Users/builder/clone/
-          ls -l /Users/builder/clone/*.xcodeproj
+          echo "Xcode projects:"
+          find /Users/builder/clone -name "*.xcodeproj"
+          echo "Current directory:"
+          pwd
+          ls -l
 
     artifacts:
       - build/ios/ipa/*.ipa
